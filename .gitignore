@@ -1,6 +1,11 @@
+embeddings/
+Level 1 Patches/
+Level 4 Patches/
+Level 6 Patches/
 patches/
 tumors/
 segregated_patches/
 embeds.npy
 images_array_32_32.npy
+images.npy
 pathology-tissue-background-segmentation.json
