@@ -38,6 +38,12 @@ def create_new_level(level):
 
 def main():
     level = None
+    
+    if os.path.exists('tumors') and os.path.isdir('tumors'):
+        pass
+    else:
+        os.mkdir('tumors')
+    
     cont = str(input("\nExtract patches for a new tumor image (MUST do for a new tumor file) (y/n)? "))
     
     if cont.lower() == 'y':
