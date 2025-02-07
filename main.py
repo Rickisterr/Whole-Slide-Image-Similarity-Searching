@@ -19,9 +19,7 @@ else:
 CHUNKS_SIZE = 10
 
 
-def create_new_level(level):
-    print(f"\nCreating 'Level {level} Patches' folder...")
-    tumorfile = str(input("\nInput file name of tumor tif file in tumors folder to use: "))
+def create_new_level(tumorfile, level, highreslevel):
     
     try:
         img_path = f'tumors/{tumorfile}'
@@ -29,7 +27,7 @@ def create_new_level(level):
         print(f"{e}: Tumor file {img_path} does not exist in tumors/")
     
     img = openslide.OpenSlide(img_path)
-    new_level_size = int((224 * CHUNKS_SIZE) / (img.level_downsamples[level] / img.level_downsamples[1]))
+    new_level_size = int((224 * CHUNKS_SIZE) / (img.level_downsamples[level] / img.level_downsamples[highreslevel]))
     
     patch = ImagePatching()
     print(f"\nCreating Level {level} Patches...\n")
@@ -38,6 +36,8 @@ def create_new_level(level):
 
 def main():
     level = None
+    highreslevel = 1
+    tumorfile = str(input("\nInput file name of tumor tif file in tumors folder to use: "))
     
     if os.path.exists('tumors') and os.path.isdir('tumors'):
         pass
@@ -50,7 +50,7 @@ def main():
         cont = str(input("Are you sure you want to proceed (y/n)? "))
     
     if cont.lower() == 'y':
-        patch = ImagePatching()
+        patch = ImagePatching(tumorfile)
         level = patch.compile_patch_folders(CHUNKS_SIZE)
     
     if level is None:
@@ -59,20 +59,23 @@ def main():
     if os.path.exists(f'Level {level} Patches') and os.path.isdir(f'Level {level} Patches'):
         print(f"\nFolder 'Level {level} Patches' already exists.")
         cntr = str(input("Replace folder (y/n)? "))
+        print("\n")
         
         if cntr.lower() == 'y':
             shutil.rmtree(f'Level {level} Patches')
             
             print(f"Folder '{f'Level {level} Patches'}' is being replaced.")
-            create_new_level(level)
+            print(f"\nCreating 'Level {level} Patches' folder...")
+            create_new_level(tumorfile, level, highreslevel)
         else:
             pass
     else:
-        create_new_level(level)
+        print(f"\nCreating 'Level {level} Patches' folder...")
+        create_new_level(tumorfile, level, highreslevel)
     
     # Main patches of WSI for conversion
     lowres_imgs = f'Level {level} Patches/'
-    highres_imgs = 'Level 1 Patches/'
+    highres_imgs = f'Level {highreslevel} Patches/'
     
     # Importing Path Foundation model
     pf_model = from_pretrained_keras('google/path-foundation')
@@ -80,14 +83,21 @@ def main():
     # Creating object for manipulation
     embedding_obj = PatchEmbedding(
             highres_patches_folder=highres_imgs,
-            highreslevel=1,
+            highreslevel=highreslevel,
             lowres_patches_folder=lowres_imgs,
             lowreslevel=level,
             model=pf_model
     )
     
+    try:
+        img_path = f'tumors/{tumorfile}'
+    except Exception as e:
+        print(f"{e}: Tumor file {img_path} does not exist in tumors/")
+    
+    img = openslide.OpenSlide(img_path)
+    
     # Creating averaged embeddings
-    embedding_obj.compile_new_embeddings()
+    embedding_obj.compile_new_embeddings(level_dimensions=img.level_dimensions[highreslevel], imgs_sz=(224, 224), patch_size=CHUNKS_SIZE)
     
     # Performing Similarity Search based on index of patch in higher level folder
     avg_embeddings_path = os.path.join("embeddings", f"averaged_embeds_level_{level}.pickle")
@@ -95,8 +105,11 @@ def main():
     
     patches = SimilarityByGrids(avg_embeddings_path, imgs_folder)
     
-    index = int(input(f"\n\nEnter index of image file in 'Level {level} Patches to be used for similarity search: "))
-    patches.showSimilarities(index)
+    index = input(f"\n\nEnter index of image file in 'Level {level} Patches' to be used for similarity search (Enter nothing to stop): ")
+    
+    while index.isdigit():
+        patches.showSimilarities(int(index))
+        index = input(f"\n\nEnter index of image file in 'Level {level} Patches to be used for similarity search: ")
 
 
 if __name__ == '__main__':

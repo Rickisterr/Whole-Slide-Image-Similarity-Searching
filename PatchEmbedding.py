@@ -41,12 +41,12 @@ class PatchEmbedding:
         
         i = 0
         embeddings = []
+        print("Processing patches into embeddings (This may take a while)...\n")
 
         for file_name in os.listdir(imgs_path):
             file_path = os.path.join(imgs_path, file_name)                                      # Creating full path to a specific file
             
             if os.path.isfile(file_path):
-                print(f"File {i}: Processing <{file_path}>")
                 
                 image = Image.open(file_path).convert("RGB")                                    # Getting RGB values of PIL Image object
                 
@@ -63,9 +63,10 @@ class PatchEmbedding:
                     "embedding": embed
                 })                                                                              # Appending new embedding to array of all embeddings
                 
-                print(f"Number of Embeddings: {len(embeddings)}", end='\n')
-                
                 i += 1
+                
+                if i % 500 == 0:
+                    print(f"{i} Embeddings processed...")
 
         print("\nSaving embeddings and their paths")
         
@@ -73,7 +74,7 @@ class PatchEmbedding:
         # Saving numpy array of embeddings into embeds.pickle        
         with open(pickle_path, 'wb') as file:
             pickle.dump(embeddings, file)
-            print(f"Embeddings with 'ID', 'filepath', and 'embedding' saved at {pickle_path}.")
+            print(f"Embeddings with 'ID', 'filepath', and 'embedding' saved at {pickle_path}.\n")
         
         return
     
@@ -104,6 +105,7 @@ class PatchEmbedding:
         for idx in range(0, rows, patch_size):
             for jdx in range(0, cols, patch_size):
                 single_grid = []
+                IDs = []
                 
                 for offset_idx in range(idx, idx+patch_size):
                     for offset_jdx in range(jdx, jdx+patch_size):
@@ -114,6 +116,7 @@ class PatchEmbedding:
                         index = file_path_to_index.get(patch_path, -1)
                         embed = embeddings[index].get("embedding")
                         
+                        IDs.append(embeddings[index].get("ID"))
                         single_grid.append(embed)
                 
                 # TODO: Check other hyperparameters for better results
@@ -125,27 +128,36 @@ class PatchEmbedding:
                 majority_cluster = max(cluster_counts, key=cluster_counts.get)
                 
                 majority_embeddings = []
+                majority_IDs = []
+                minority_IDs = []
                 
-                for i in labels:
+                for i in range(len(labels)):
                     if labels[i] == majority_cluster:
                         majority_embeddings.append(single_grid[i])
+                        majority_IDs.append(IDs[i])
+                    else:
+                        minority_IDs.append(IDs[i])
 
                 # Computing the average embedding of the majority cluster
                 average_embedding = np.mean(majority_embeddings, axis=0)
                 
                 patches_grids.append({
+                    "ID": f"Lowres_{len(patches_grids)}",
+                    "majority_clusters": majority_IDs,
+                    "minority_clusters": minority_IDs,
+                    "level1_coords": f"{int(idx):04d}_by_{int(jdx):04d}",
                     "new_patch_coords": f"{int(idx/patch_size):04d}_by_{int(jdx/patch_size):04d}",
                     "embedding": average_embedding
                 })
                 
-                print(f"Embedding of grid {idx}x{jdx} processed as new level's {int(idx/patch_size):04d}x{int(jdx/patch_size):04d} patch.")
+        print(f"Embedding of grids {idx}x{jdx} processed as new level's {int(idx/patch_size):04d}x{int(jdx/patch_size):04d} patches.")
         
         print()
         
         return patches_grids
     
     
-    def compile_new_embeddings(self):
+    def compile_new_embeddings(self, level_dimensions, imgs_sz, patch_size):
         pickle_path = os.path.join('embeddings', f'averaged_embeds_level_{self.lowres_level}.pickle')
         
         if os.path.exists(pickle_path) and os.path.isfile(pickle_path):
@@ -158,11 +170,11 @@ class PatchEmbedding:
             else:
                 return
         
-        patches_grids = self._combine_patch_embeddings()
+        patches_grids = self._combine_patch_embeddings(level_dimensions, imgs_sz, patch_size)
         
         # Saving embeddings of patches grids as pickle file
         with open(pickle_path, 'wb') as file:
             pickle.dump(patches_grids, file)
-            print(f"Embeddings with 'ID', 'filepath', and 'embedding' saved at {pickle_path}.\n")
+            print(f"Embeddings with 'majority_clusters', 'minority_clusters', 'level1_coords', 'new_patch_coords', and 'embedding' saved at {pickle_path}.\n")
         
         return

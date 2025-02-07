@@ -11,11 +11,10 @@ else:
 
 
 class ImagePatching:
-    def __init__(self):
-        pass
+    def __init__(self, tumorfile):
+        self.tumorfile = tumorfile
     
     def compile_patch_folders(self, chunks_size):
-        tumorfile = str(input("\nInput file name of tumor tif file in tumors folder: "))
         
         if os.path.exists('tumors') and os.path.isdir('tumors'):
             pass
@@ -27,7 +26,7 @@ class ImagePatching:
             return
         
         try:
-            img_path = f'tumors/{tumorfile}'
+            img_path = f'tumors/{self.tumorfile}'
         except Exception as e:
             print(f"{e}: Tumor file {img_path} does not exist in tumors/")
         

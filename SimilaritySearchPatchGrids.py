@@ -42,7 +42,7 @@ class SimilarityByGrids:
         indices = np.argsort(similarities)                                              # Ordering indices of similarities in ascending order
         indices = indices[::-1][:k_similarities]                                        # Getting k similarities of highest values
         similar_imgs = [self.images[i] for i in indices]                                # Getting the respective images with most similarity
-        similar_percent = [np.round((similarities[i]*100), 2) for i in indices]         # Getting similarity values of each procured image as a percentage
+        similar_percent = [round((similarities[i]*100), 2) for i in indices]         # Getting similarity values of each procured image as a percentage
         
         return similar_imgs, similar_percent
 
@@ -66,7 +66,7 @@ class SimilarityByGrids:
             
             plt.subplot(1, num_images, i + 2)
             plt.imshow(img_obj)
-            plt.title(f"Similarity: {percents[i]}%")
+            plt.title(f"Similarity: {round(percents[i], 2):.2f}%")
             plt.axis("off")
         
         plt.show()
