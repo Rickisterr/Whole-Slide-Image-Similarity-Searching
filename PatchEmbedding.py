@@ -8,7 +8,7 @@ import pickle
 
 OPENSLIDE_PATH = 'C:/openslide-bin-4.0.0.6-windows-x64/bin'
 EPS = 0.15
-MIN_SAMPLES = 10
+MIN_SAMPLES = 10                        # Calculate by some number bit less than percentage of off-slide patches
 
 import os
 if hasattr(os, 'add_dll_directory'):

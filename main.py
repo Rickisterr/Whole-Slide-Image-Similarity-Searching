@@ -1,9 +1,11 @@
 from PatchEmbedding import PatchEmbedding
 from SimilaritySearchPatchGrids import SimilarityByGrids
 from CreatePatches import ImagePatching
+from tissueRegionCalculator import tissueRegionization
 
 import os
 import shutil
+import matplotlib.pyplot as plt
 from huggingface_hub import from_pretrained_keras
 
 OPENSLIDE_PATH = 'C:/openslide-bin-4.0.0.6-windows-x64/bin'
@@ -15,8 +17,10 @@ else:
     import openslide
 
 #### Change these variables according to need
-# Size of chunks of higher level in number of patches (CHUNKS_SIZE by CHUNKS_SIZE number of patches)
-CHUNKS_SIZE = 10
+# Size of chunks of higher level in number of patches (CHUNKS_COUNT by CHUNKS_COUNT number of patches)
+CHUNKS_COUNT = 4
+PATCH_PIXELS = (224, 224)                   # Size in pixels of each lower level patches
+EMPTY_REGIONS_THRESHOLD = 20                # Percentage range + and - allowed for non-tissue regions of similar images
 
 
 def create_new_level(tumorfile, level, highreslevel):
@@ -27,9 +31,9 @@ def create_new_level(tumorfile, level, highreslevel):
         print(f"{e}: Tumor file {img_path} does not exist in tumors/")
     
     img = openslide.OpenSlide(img_path)
-    new_level_size = int((224 * CHUNKS_SIZE) / (img.level_downsamples[level] / img.level_downsamples[highreslevel]))
+    new_level_size = int((PATCH_PIXELS[0] * CHUNKS_COUNT) / (img.level_downsamples[level] / img.level_downsamples[highreslevel]))
     
-    patch = ImagePatching()
+    patch = ImagePatching(tumorfile)
     print(f"\nCreating Level {level} Patches...\n")
     patch.create_level_patch(img, level, (new_level_size, new_level_size))
 
@@ -51,7 +55,7 @@ def main():
     
     if cont.lower() == 'y':
         patch = ImagePatching(tumorfile)
-        level = patch.compile_patch_folders(CHUNKS_SIZE)
+        level = patch.compile_patch_folders(CHUNKS_COUNT)
     
     if level is None:
         level = int(input("\nEnter Patches level to convert level 1 patch embeddings to: "))
@@ -97,18 +101,28 @@ def main():
     img = openslide.OpenSlide(img_path)
     
     # Creating averaged embeddings
-    embedding_obj.compile_new_embeddings(level_dimensions=img.level_dimensions[highreslevel], imgs_sz=(224, 224), patch_size=CHUNKS_SIZE)
+    embedding_obj.compile_new_embeddings(level_dimensions=img.level_dimensions[highreslevel], imgs_sz=PATCH_PIXELS, patch_size=CHUNKS_COUNT)
     
     # Performing Similarity Search based on index of patch in higher level folder
     avg_embeddings_path = os.path.join("embeddings", f"averaged_embeds_level_{level}.pickle")
-    imgs_folder = f"Level {level} Patches/"
+    imgs_folder = f"Level {level} Patches"
     
     patches = SimilarityByGrids(avg_embeddings_path, imgs_folder)
+    tissuecalc = tissueRegionization(EMPTY_REGIONS_THRESHOLD)
+    
+    imgs_paths = []
+    
+    # Getting list of paths to all patches' images
+    for file in os.listdir(imgs_folder):
+        imgs_paths.append(os.path.join(imgs_folder, file))
+    
+    # Calculating tissue regions and saving
+    tissue_percents = tissuecalc.calculateEmptyPercentage(imgs_paths)
     
     index = input(f"\n\nEnter index of image file in 'Level {level} Patches' to be used for similarity search (Enter nothing to stop): ")
     
     while index.isdigit():
-        patches.showSimilarities(int(index))
+        patches.showSimilarities(int(index), tissue_percents)
         index = input(f"\n\nEnter index of image file in 'Level {level} Patches to be used for similarity search: ")
 
 
